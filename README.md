@@ -106,6 +106,21 @@ docker build -t mcp/puppeteer -f src/puppeteer/Dockerfile .
 
 This MCP server is licensed under the MIT License. This means you are free to use, modify, and distribute the software, subject to the terms and conditions of the MIT License. For more details, please see the LICENSE file in the project repository.
 
+## What's New in Version 0.6.5
+
+### Improved Memory Profiling
+
+Version 0.6.5 includes significant improvements to the memory profiling tools:
+
+- **Enhanced CDP Session Management**: More robust CDP (Chrome DevTools Protocol) session creation with automatic retry logic for better reliability.
+- **Error Recovery**: Memory profiling tools now gracefully handle temporary disconnections and errors while continuing to collect data.
+- **Improved Garbage Collection**: Forced garbage collection before measurements to ensure more accurate readings.
+- **Memory Growth Analysis**: Added sophisticated algorithms to analyze memory growth patterns over time.
+- **Detailed Size Estimation**: Better estimation of detached DOM node sizes with detailed calculations for attributes, styles, and text content.
+- **Resilient Monitoring**: Memory monitoring now continues even when encountering errors, pushing error points to the timeline for better diagnostics.
+
+These improvements make the memory profiling tools more reliable and effective at identifying memory leaks in web applications.
+
 ## Memory Profiling Tools
 
 This MCP server has been extended with Chrome DevTools Protocol integration to provide memory profiling capabilities that can help detect memory leaks in web applications.
