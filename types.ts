@@ -12,6 +12,7 @@ export interface MemoryMetrics {
   totalJSHeapSize: number;
   usedJSHeapSize: number;
   timestamp: number;
+  error?: string;
 }
 
 export interface HeapSnapshotSummary {
@@ -19,14 +20,16 @@ export interface HeapSnapshotSummary {
   totalSize: number;
   nodeCount: number;
   detachedDomTreesCount: number;
-  windowCount: number;
-  documentCount: number;
+  windowCount?: number;
+  documentCount?: number;
   largeObjects: Array<{type: string, count: number, size: number}>;
+  error?: string;
 }
 
 export interface MemoryTimelinePoint {
   metrics: MemoryMetrics;
   timestamp: number;
+  error?: string;
 }
 
 export interface DetachedDOMNode {
