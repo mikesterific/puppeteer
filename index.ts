@@ -344,16 +344,42 @@ async function handleToolCall(
     }
 
     case "make_http_request": {
-      const response = await makeRequest(
-        args.url,
-        args.type,
-        args.headers,
-        args.body
-      );
-      return {
-        content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
-        isError: false,
-      };
+      try {
+        const response = await makeRequest(
+          args.url,
+          args.type,
+          args.headers,
+          args.body
+        );
+        
+        // Ensure response data is properly formatted
+        let responseText;
+        try {
+          // If the data is JSON, parse and stringify to ensure proper formatting
+          const parsedData = JSON.parse(response.data);
+          responseText = JSON.stringify(parsedData, null, 2);
+        } catch (parseError) {
+          // If it's not valid JSON, just use the text as is
+          responseText = `Text response: ${response.data}`;
+        }
+        
+        return {
+          content: [{ 
+            type: "text", 
+            text: JSON.stringify({
+              status: response.status,
+              headers: response.headers,
+              data: responseText
+            }, null, 2) 
+          }],
+          isError: false
+        };
+      } catch (error) {
+        return {
+          content: [{ type: "text", text: `Error making request: ${error.message}` }],
+          isError: true
+        };
+      }
     }
 
     case "semantic_search_requests": {
@@ -573,11 +599,18 @@ server.setRequestHandler(CallToolRequestSchema, async (request) =>
 );
 
 async function runServer() {
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
+  try {
+    const transport = new StdioServerTransport();
+    await server.connect(transport);
+    console.error('Server connected successfully');
+  } catch (error) {
+    console.error('Failed to initialize server:', error);
+  }
 }
 
-runServer().catch(console.error);
+runServer().catch((error) => {
+  console.error('Unhandled error in runServer:', error);
+});
 
 process.stdin.on("close", () => {
   console.error("Puppeteer MCP Server closed");
