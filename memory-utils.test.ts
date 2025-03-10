@@ -1,4 +1,4 @@
-import puppeteer, { Browser, Page } from 'puppeteer';
+import puppeteer, { Browser, Page, CDPSession } from 'puppeteer';
 import {
   getMemoryMetrics,
   takeHeapSnapshot,
@@ -37,7 +37,7 @@ jest.mock('puppeteer', () => {
       
       return {};
     }),
-    on: jest.fn().mockImplementation((event, callback) => {
+    on: jest.fn().mockImplementation((event, callback: (data: { chunk: string }) => void) => {
       if (event === 'HeapProfiler.addHeapSnapshotChunk') {
         callback({ chunk: JSON.stringify({
           nodes: {},
@@ -81,11 +81,14 @@ jest.mock('puppeteer', () => {
   };
 });
 
-// Get access to mocks
-const mockPuppeteer = puppeteer as unknown as jest.Mocked<typeof puppeteer> & {
-  __mockPage: jest.Mocked<Page>;
+// Define a type for the augmented puppeteer mock
+interface PuppeteerMock extends jest.Mocked<typeof puppeteer> {
+  __mockPage: any;
   __mockCDPSession: any;
-};
+}
+
+// Get access to mocks
+const mockPuppeteer = puppeteer as unknown as PuppeteerMock;
 
 describe('Memory Profiling Utilities', () => {
   let mockPage: jest.Mocked<Page>;
