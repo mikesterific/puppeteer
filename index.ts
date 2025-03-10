@@ -29,13 +29,13 @@ import { FeatureExtractionPipeline } from "@xenova/transformers";
 const TOOLS: Tool[] = [
   {
     name: "puppeteer_navigate",
-    description: "Navigate to a URL",
+    description: "Navigate to a URL. If no URL is provided, uses the current URL from the browser window that Cursor AI is targeting.",
     inputSchema: {
       type: "object",
       properties: {
         url: { type: "string" },
       },
-      required: ["url"],
+      required: [],
     },
   },
   {
@@ -248,12 +248,13 @@ async function handleToolCall(
   const page = await ensureBrowser();
   switch (name) {
     case "puppeteer_navigate":
-      await page.goto(args.url);
+      const targetUrl = args.url || await page.evaluate(() => window.location.href);
+      await page.goto(targetUrl);
       return {
         content: [
           {
             type: "text",
-            text: `Navigated to ${args.url}`,
+            text: `Navigated to ${targetUrl}`,
           },
         ],
         isError: false,

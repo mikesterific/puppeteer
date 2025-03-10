@@ -9,6 +9,7 @@ A Model Context Protocol server that provides browser automation capabilities us
 - **puppeteer_navigate**
   - Navigate to any URL in the browser
   - Input: `url` (string)
+  - If no URL is provided, it will use the current URL from the browser window that Cursor AI is targeting
 
 - **puppeteer_screenshot**
   - Capture screenshots of the entire page or specific elements
@@ -174,8 +175,8 @@ Analyzes detached DOM nodes that might be causing memory leaks:
 ### Example Usage
 
 ```javascript
-// Navigate to the target page
-await mcp__puppeteer_navigate({ url: 'https://example.com/app' });
+// Navigate to the target page that Cursor AI is currently focused on
+await mcp__puppeteer_navigate({ url: window.location.href });
 
 // Get baseline memory metrics
 const baselineMetrics = await mcp__get_memory_metrics({});
@@ -248,9 +249,10 @@ The HTTP server complements the Model Context Protocol (MCP) server by providing
 Once you have the HTTP server running, you can use the web interface to:
 
 1. **Browser Navigation**
-   - Navigate to any URL
+   - Navigate to any URL or refresh the current page
    - View the webpage within the interface
    - Go back, forward, or refresh the page
+   - Automatically use the current page URL for actions if none is specified
 
 2. **Page Interaction**
    - Click on elements
