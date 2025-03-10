@@ -15,6 +15,13 @@ import {
   makeRequest,
   semanticSearchRequestsSentTransformer,
 } from "./utilities.js";
+import {
+  getMemoryMetrics,
+  takeHeapSnapshot,
+  monitorMemory,
+  analyzeDetachedDOMNodes,
+  formatMemorySize
+} from "./memory-utils.js";
 
 import { RequestRecord } from "./types.js";
 import { FeatureExtractionPipeline } from "@xenova/transformers";
@@ -84,6 +91,56 @@ const TOOLS: Tool[] = [
         },
       },
       required: ["query", "page_url"],
+    },
+  },
+  {
+    name: "take_heap_snapshot",
+    description: "Capture a heap snapshot and analyze memory usage",
+    inputSchema: {
+      type: "object",
+      properties: {
+        detailed: {
+          type: "boolean",
+          description: "Whether to include detailed object information",
+        },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "get_memory_metrics",
+    description: "Get current memory usage metrics from Chrome",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      required: [],
+    },
+  },
+  {
+    name: "start_memory_monitoring",
+    description: "Start monitoring memory usage over time to detect leaks",
+    inputSchema: {
+      type: "object",
+      properties: {
+        duration: {
+          type: "number",
+          description: "Duration in seconds to monitor memory (default: 30)",
+        },
+        interval: {
+          type: "number",
+          description: "Interval between samples in milliseconds (default: 1000)",
+        },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "analyze_detached_dom",
+    description: "Analyze detached DOM nodes that might cause memory leaks",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      required: [],
     },
   },
 ];
@@ -248,15 +305,174 @@ async function handleToolCall(
         isError: false,
       };
     }
+    
+    case "take_heap_snapshot": {
+      try {
+        const detailed = args.detailed === true;
+        const snapshot = await takeHeapSnapshot(page, detailed);
+        
+        // Format results to be more human-readable
+        const formattedResult = {
+          ...snapshot,
+          totalSize: formatMemorySize(snapshot.totalSize),
+          largeObjects: snapshot.largeObjects.map(obj => ({
+            ...obj,
+            size: formatMemorySize(obj.size)
+          }))
+        };
+        
+        return {
+          content: [
+            { 
+              type: "text", 
+              text: `Heap Snapshot Analysis:\n${JSON.stringify(formattedResult, null, 2)}` 
+            }
+          ],
+          isError: false
+        };
+      } catch (error) {
+        return {
+          content: [{ type: "text", text: `Error taking heap snapshot: ${error.message}` }],
+          isError: true
+        };
+      }
+    }
+    
+    case "get_memory_metrics": {
+      try {
+        const metrics = await getMemoryMetrics(page);
+        
+        // Format the metrics to be more readable
+        const formattedMetrics = {
+          jsHeapSizeLimit: formatMemorySize(metrics.jsHeapSizeLimit),
+          totalJSHeapSize: formatMemorySize(metrics.totalJSHeapSize),
+          usedJSHeapSize: formatMemorySize(metrics.usedJSHeapSize),
+          timestamp: new Date(metrics.timestamp).toISOString(),
+          usagePercentage: ((metrics.usedJSHeapSize / metrics.jsHeapSizeLimit) * 100).toFixed(2) + '%'
+        };
+        
+        return {
+          content: [
+            { 
+              type: "text",
+              text: `Current Memory Metrics:\n${JSON.stringify(formattedMetrics, null, 2)}`
+            }
+          ],
+          isError: false
+        };
+      } catch (error) {
+        return {
+          content: [{ type: "text", text: `Error getting memory metrics: ${error.message}` }],
+          isError: true
+        };
+      }
+    }
+    
+    case "start_memory_monitoring": {
+      try {
+        const duration = args.duration || 30; // Default 30 seconds
+        const interval = args.interval || 1000; // Default 1 second
+        
+        // Start the monitoring process
+        const timeline = await monitorMemory(page, duration, interval);
+        
+        // Format the timeline data
+        const formattedTimeline = timeline.map(point => ({
+          timestamp: new Date(point.timestamp).toISOString(),
+          metrics: {
+            jsHeapSizeLimit: formatMemorySize(point.metrics.jsHeapSizeLimit),
+            totalJSHeapSize: formatMemorySize(point.metrics.totalJSHeapSize),
+            usedJSHeapSize: formatMemorySize(point.metrics.usedJSHeapSize),
+            usagePercentage: ((point.metrics.usedJSHeapSize / point.metrics.jsHeapSizeLimit) * 100).toFixed(2) + '%'
+          }
+        }));
+        
+        // Calculate growth rate
+        const firstPoint = timeline[0];
+        const lastPoint = timeline[timeline.length - 1];
+        const memoryGrowth = lastPoint.metrics.usedJSHeapSize - firstPoint.metrics.usedJSHeapSize;
+        const timeElapsed = (lastPoint.timestamp - firstPoint.timestamp) / 1000; // in seconds
+        const growthRate = memoryGrowth / timeElapsed; // bytes per second
+        
+        // Analyze for potential leaks
+        const hasLeak = growthRate > 10000; // More than 10KB/sec might indicate a leak
+        
+        const analysis = {
+          sampleCount: timeline.length,
+          duration: `${duration} seconds`,
+          interval: `${interval} ms`,
+          memoryGrowth: formatMemorySize(memoryGrowth),
+          growthRate: `${formatMemorySize(growthRate)}/sec`,
+          potentialLeak: hasLeak,
+          recommendation: hasLeak 
+            ? "Potential memory leak detected. Consider investigating detached DOM nodes or closure references."
+            : "No significant memory growth detected.",
+          timeline: formattedTimeline
+        };
+        
+        return {
+          content: [
+            { 
+              type: "text",
+              text: `Memory Monitoring Results:\n${JSON.stringify(analysis, null, 2)}`
+            }
+          ],
+          isError: false
+        };
+      } catch (error) {
+        return {
+          content: [{ type: "text", text: `Error monitoring memory: ${error.message}` }],
+          isError: true
+        };
+      }
+    }
+    
+    case "analyze_detached_dom": {
+      try {
+        const detachedNodes = await analyzeDetachedDOMNodes(page);
+        
+        // Format the results
+        const summary = {
+          detachedNodeCount: detachedNodes.length,
+          totalRetainedSize: formatMemorySize(
+            detachedNodes.reduce((sum, node) => sum + node.retainedSize, 0)
+          ),
+          detachedNodes: detachedNodes.map(node => ({
+            ...node,
+            retainedSize: formatMemorySize(node.retainedSize)
+          }))
+        };
+        
+        // Add recommendations
+        const recommendations = detachedNodes.length > 0 
+          ? [
+              "Consider cleaning up event listeners on elements before removing them from the DOM",
+              "Check for references to DOM elements in closures or global variables",
+              "Use WeakMap/WeakSet for storing DOM references",
+              "Implement proper component cleanup in frameworks"
+            ]
+          : ["No detached DOM nodes found that might cause memory leaks"];
+        
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Detached DOM Analysis:\n${JSON.stringify({...summary, recommendations}, null, 2)}`
+            }
+          ],
+          isError: false
+        };
+      } catch (error) {
+        return {
+          content: [{ type: "text", text: `Error analyzing detached DOM: ${error.message}` }],
+          isError: true
+        };
+      }
+    }
 
     default:
       return {
-        content: [
-          {
-            type: "text",
-            text: `Unknown tool: ${name}`,
-          },
-        ],
+        content: [{ type: "text", text: `Unknown tool: ${name}` }],
         isError: true,
       };
   }
