@@ -11,13 +11,15 @@
     "mcp-server-puppeteer": "dist/index.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "http-server.js"
   ],
   "scripts": {
     "build": "tsc && shx chmod +x dist/*.js",
     "prepare": "npm run build",
     "watch": "tsc --watch",
-    "test": "jest"
+    "test": "jest",
+    "serve": "node http-server.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.0.1",

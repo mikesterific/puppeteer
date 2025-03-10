@@ -201,3 +201,199 @@ if (monitoringResults.potentialLeak) {
 // Take a detailed heap snapshot for further analysis
 const heapSnapshot = await mcp__take_heap_snapshot({ detailed: true });
 ```
+
+## HTTP Server Functionality
+
+The project includes a simple HTTP server (`http-server.js`) that serves the Vue Puppeteer client interface for browser automation. This allows you to interact with the browser automation features through a web interface.
+
+### Installation
+
+Before running the HTTP server, make sure you have the required dependencies installed:
+
+```bash
+# Install the project dependencies
+npm install
+
+# If you haven't already, build the Vue client
+cd vue-puppeteer-client
+npm install
+npm run build
+cd ..
+```
+
+### Starting the HTTP Server
+
+To start the HTTP server, run:
+
+```bash
+node http-server.js
+```
+
+The server will start on port 3000, and you can access the interface at [http://localhost:3000/](http://localhost:3000/).
+
+### Features
+
+- Serves static files from the Vue Puppeteer client interface
+- Provides a web-based interface for browser automation
+- Supports all Puppeteer functionality through a user-friendly web UI
+- Automatically routes requests to the appropriate static files
+- Returns appropriate MIME types for different file extensions
+
+### Integration with MCP
+
+The HTTP server complements the Model Context Protocol (MCP) server by providing a visual interface for the same browser automation capabilities. While the MCP server enables programmatic access for AI models, the HTTP server makes these features accessible through a human-friendly web interface.
+
+### Using the Web Interface
+
+Once you have the HTTP server running, you can use the web interface to:
+
+1. **Browser Navigation**
+   - Navigate to any URL
+   - View the webpage within the interface
+   - Go back, forward, or refresh the page
+
+2. **Page Interaction**
+   - Click on elements
+   - Fill out forms
+   - Select options from dropdowns
+   - Hover over elements
+
+3. **Debugging**
+   - View browser console logs in real-time
+   - Inspect network requests
+   - Take screenshots of the page or specific elements
+
+4. **Memory Profiling**
+   - Access memory metrics
+   - Take heap snapshots
+   - Monitor memory usage over time
+   - Analyze detached DOM nodes
+
+The interface provides a user-friendly way to test and debug browser automation tasks before implementing them programmatically via the MCP server.
+
+## Publishing and Importing
+
+To publish this package so it can be imported into another codebase that uses MCP, follow these steps:
+
+### Publishing to npm
+
+1. **Prepare the package**:
+   - Ensure all required dependencies are in the `package.json`
+   - Update the version number in `package.json` if needed
+   - Make sure the TypeScript files compile successfully
+
+2. **Build the package**:
+   ```bash
+   npm run build
+   ```
+
+3. **Login to npm**:
+   ```bash
+   npm login
+   ```
+
+4. **Publish the package**:
+   ```bash
+   npm publish
+   ```
+   
+   If this is a scoped package (like `@modelcontextprotocol/server-puppeteer`), you will need to use:
+   ```bash
+   npm publish --access public
+   ```
+
+### Importing into Another Project
+
+Once published, you can import this package into another MCP project using:
+
+1. **Install the package**:
+   ```bash
+   npm install @modelcontextprotocol/server-puppeteer
+   ```
+
+2. **Use in your MCP configuration**:
+   ```json
+   {
+     "mcpServers": {
+       "puppeteer": {
+         "command": "node",
+         "args": ["./node_modules/@modelcontextprotocol/server-puppeteer/dist/index.js"]
+       }
+     }
+   }
+   ```
+
+3. **Programmatic Usage**:
+   If you want to use it programmatically in your codebase:
+   ```javascript
+   import { Server } from '@modelcontextprotocol/server-puppeteer';
+   
+   // Initialize and use the server according to your needs
+   const puppeteerServer = new Server({
+     // Your configuration here
+   });
+   ```
+
+### Publishing Docker Image
+
+If you prefer to use the Docker approach:
+
+1. **Build the Docker image**:
+   ```bash
+   docker build -t yourname/mcp-puppeteer -f Dockerfile .
+   ```
+
+2. **Push to Docker Hub**:
+   ```bash
+   docker push yourname/mcp-puppeteer
+   ```
+
+3. **Use in another project**:
+   ```json
+   {
+     "mcpServers": {
+       "puppeteer": {
+         "command": "docker",
+         "args": ["run", "-i", "--rm", "--init", "-e", "DOCKER_CONTAINER=true", "yourname/mcp-puppeteer"]
+       }
+     }
+   }
+   ```
+
+### Including HTTP Server Functionality
+
+If you want to include the HTTP server functionality in your imported package:
+
+1. **Copy the HTTP server file**:
+   Make sure to include `http-server.js` in your published package by adding it to the `files` array in `package.json`:
+   ```json
+   "files": [
+     "dist",
+     "http-server.js"
+   ]
+   ```
+
+2. **Add an HTTP server script**:
+   Add a script to your `package.json` to easily start the HTTP server:
+   ```json
+   "scripts": {
+     "build": "tsc && shx chmod +x dist/*.js",
+     "prepare": "npm run build",
+     "watch": "tsc --watch",
+     "test": "jest",
+     "serve": "node http-server.js"
+   }
+   ```
+
+3. **Using in another project**:
+   After installing the package in your project, you can start the HTTP server using:
+   ```bash
+   npx @modelcontextprotocol/server-puppeteer serve
+   ```
+   
+   Or add it to your project's scripts:
+   ```json
+   "scripts": {
+     "start-puppeteer-ui": "npx @modelcontextprotocol/server-puppeteer serve"
+   }
+   ```
