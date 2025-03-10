@@ -1,5 +1,5 @@
 {
-  "name": "@modelcontextprotocol/server-puppeteer",
+  "name": "@mikesterific/puppeteer-dev-tools",
   "version": "0.6.3",
   "description": "MCP server for browser automation using Puppeteer",
   "license": "MIT",
@@ -8,7 +8,7 @@
   "bugs": "https://github.com/modelcontextprotocol/servers/issues",
   "type": "module",
   "bin": {
-    "mcp-server-puppeteer": "dist/index.js"
+    "puppeteer-dev-tools": "dist/index.js"
   },
   "files": [
     "dist",

@@ -88,7 +88,7 @@ Here's the Claude Desktop configuration to use the Puppeter server:
   "mcpServers": {
     "puppeteer": {
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-puppeteer"]
+      "args": ["-y", "@mikesterific/puppeteer-dev-tools"]
     }
   }
 }
@@ -310,7 +310,7 @@ Once published, you can import this package into another MCP project using:
 
 1. **Install the package**:
    ```bash
-   npm install @modelcontextprotocol/server-puppeteer
+   npm install @mikesterific/puppeteer-dev-tools
    ```
 
 2. **Use in your MCP configuration**:
@@ -319,7 +319,7 @@ Once published, you can import this package into another MCP project using:
      "mcpServers": {
        "puppeteer": {
          "command": "node",
-         "args": ["./node_modules/@modelcontextprotocol/server-puppeteer/dist/index.js"]
+         "args": ["./node_modules/@mikesterific/puppeteer-dev-tools/dist/index.js"]
        }
      }
    }
@@ -328,7 +328,7 @@ Once published, you can import this package into another MCP project using:
 3. **Programmatic Usage**:
    If you want to use it programmatically in your codebase:
    ```javascript
-   import { Server } from '@modelcontextprotocol/server-puppeteer';
+   import { Server } from '@mikesterific/puppeteer-dev-tools';
    
    // Initialize and use the server according to your needs
    const puppeteerServer = new Server({
@@ -390,12 +390,12 @@ If you want to include the HTTP server functionality in your imported package:
 3. **Using in another project**:
    After installing the package in your project, you can start the HTTP server using:
    ```bash
-   npx @modelcontextprotocol/server-puppeteer serve
+   npx @mikesterific/puppeteer-dev-tools serve
    ```
    
    Or add it to your project's scripts:
    ```json
    "scripts": {
-     "start-puppeteer-ui": "npx @modelcontextprotocol/server-puppeteer serve"
+     "start-puppeteer-ui": "npx @mikesterific/puppeteer-dev-tools serve"
    }
    ```
