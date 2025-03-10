@@ -39,6 +39,24 @@ const TOOLS: Tool[] = [
     },
   },
   {
+    name: "puppeteer_set_window_size",
+    description: "Set the browser window size",
+    inputSchema: {
+      type: "object",
+      properties: {
+        width: { 
+          type: "number",
+          description: "Width of the browser window in pixels (default: 1200)"
+        },
+        height: { 
+          type: "number",
+          description: "Height of the browser window in pixels (default: 900)"
+        }
+      },
+      required: [],
+    },
+  },
+  {
     name: "puppeteer_page_history",
     description: "Get the history of visited URLs, most recent urls first",
     inputSchema: {
@@ -162,9 +180,14 @@ initializeModelSentTransformer().then((sent_pipeline) => {
 
 async function ensureBrowser() {
   if (!browser) {
-    const npx_args = { headless: false };
+    const npx_args = { 
+      headless: false,
+      defaultViewport: null, // Use window size instead of viewport
+      args: ['--window-size=1200,900'] // Larger window size
+    };
     const docker_args = {
       headless: true,
+      defaultViewport: { width: 1200, height: 900 }, // For headless mode, use viewport instead
       args: ["--no-sandbox", "--single-process", "--no-zygote"],
     };
     browser = await puppeteer.launch(
@@ -172,6 +195,12 @@ async function ensureBrowser() {
     );
     const pages = await browser.pages();
     page = pages[0];
+    
+    // Set a large viewport if using defaultViewport (mostly for headless mode)
+    if (process.env.DOCKER_CONTAINER) {
+      await page.setViewport({ width: 1200, height: 900 });
+    }
+    
     page.setRequestInterception(true);
 
     // Configure page listeners for logging and request tracking
@@ -271,7 +300,7 @@ async function handleToolCall(
         isError: false,
       };
 
-    case "page_history":
+    case "puppeteer_page_history":
       return {
         content: [
           {
@@ -281,6 +310,38 @@ async function handleToolCall(
         ],
         isError: false,
       };
+
+    case "puppeteer_set_window_size": {
+      try {
+        // Default values if not provided
+        const width = args.width || 1200;
+        const height = args.height || 900;
+        
+        if (process.env.DOCKER_CONTAINER) {
+          // In headless mode, use viewport
+          await page.setViewport({ width, height });
+        } else {
+          // In non-headless mode, resize the window
+          const session = await page.target().createCDPSession();
+          await session.send('Browser.setWindowBounds', {
+            windowId: 1,
+            bounds: { width, height }
+          });
+        }
+        
+        return {
+          content: [
+            { type: "text", text: `Browser window size set to ${width}x${height} pixels` }
+          ],
+          isError: false
+        };
+      } catch (error) {
+        return {
+          content: [{ type: "text", text: `Error setting window size: ${error.message}` }],
+          isError: true
+        };
+      }
+    }
 
     case "make_http_request": {
       const response = await makeRequest(
