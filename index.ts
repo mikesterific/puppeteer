@@ -46,11 +46,29 @@ const TOOLS: Tool[] = [
       properties: {
         width: { 
           type: "number",
-          description: "Width of the browser window in pixels (default: 1200)"
+          description: "Width of the browser window in pixels (default: 1920)"
         },
         height: { 
           type: "number",
-          description: "Height of the browser window in pixels (default: 900)"
+          description: "Height of the browser window in pixels (default: 1080)"
+        }
+      },
+      required: [],
+    },
+  },
+  {
+    name: "puppeteer_inject_css",
+    description: "Inject custom CSS into the page to fix styling issues",
+    inputSchema: {
+      type: "object",
+      properties: {
+        css: { 
+          type: "string",
+          description: "CSS styles to inject. Defaults to making content fill the full screen height."
+        },
+        fullHeight: {
+          type: "boolean",
+          description: "Whether to use the default full height CSS"
         }
       },
       required: [],
@@ -183,11 +201,14 @@ async function ensureBrowser() {
     const npx_args = { 
       headless: false,
       defaultViewport: null, // Use window size instead of viewport
-      args: ['--window-size=1200,900'] // Larger window size
+      args: [
+        '--start-maximized', // Maximize the browser window
+        '--window-size=1920,1080', // Fallback size if maximize doesn't work
+      ]
     };
     const docker_args = {
       headless: true,
-      defaultViewport: { width: 1200, height: 900 }, // For headless mode, use viewport instead
+      defaultViewport: { width: 1920, height: 1080 }, // Much larger viewport
       args: ["--no-sandbox", "--single-process", "--no-zygote"],
     };
     browser = await puppeteer.launch(
@@ -198,7 +219,18 @@ async function ensureBrowser() {
     
     // Set a large viewport if using defaultViewport (mostly for headless mode)
     if (process.env.DOCKER_CONTAINER) {
-      await page.setViewport({ width: 1200, height: 900 });
+      await page.setViewport({ width: 1920, height: 1080 });
+    } else {
+      // For non-headless mode, try to maximize the window
+      try {
+        const session = await page.target().createCDPSession();
+        await session.send('Browser.setWindowBounds', {
+          windowId: 1,
+          bounds: { windowState: 'maximized' }
+        });
+      } catch (error) {
+        console.error('Failed to maximize window:', error);
+      }
     }
     
     page.setRequestInterception(true);
@@ -265,6 +297,25 @@ async function ensureBrowser() {
       await page.goto("http://localhost:5173/", { waitUntil: 'networkidle0' });
       urlHistory.push("http://localhost:5173/");
       console.log("Successfully navigated to http://localhost:5173/");
+      
+      // Auto-inject CSS for full height content on initial load
+      const fullHeightCSS = `
+        html, body { 
+          height: 100vh !important; 
+          margin: 0 !important; 
+          padding: 0 !important; 
+          overflow: auto !important;
+        }
+        .pve-content, #content, main, .main-container, .content-area, .content-wrapper, .container, .container-fluid {
+          min-height: 100vh !important;
+          height: auto !important;
+        }
+        iframe, .frame, .iframe-container {
+          height: 100vh !important;
+          min-height: 100vh !important;
+        }
+      `;
+      await page.addStyleTag({ content: fullHeightCSS });
     } catch (error) {
       console.error("Failed to navigate to http://localhost:5173/ - falling back to default:", error);
     }
@@ -290,6 +341,30 @@ async function handleToolCall(
     case "puppeteer_navigate":
       const targetUrl = args.url || await page.evaluate(() => window.location.href);
       await page.goto(targetUrl);
+      
+      // Auto-inject CSS for full height content
+      try {
+        const fullHeightCSS = `
+          html, body { 
+            height: 100vh !important; 
+            margin: 0 !important; 
+            padding: 0 !important; 
+            overflow: auto !important;
+          }
+          .pve-content, #content, main, .main-container, .content-area, .content-wrapper, .container, .container-fluid {
+            min-height: 100vh !important;
+            height: auto !important;
+          }
+          iframe, .frame, .iframe-container {
+            height: 100vh !important;
+            min-height: 100vh !important;
+          }
+        `;
+        await page.addStyleTag({ content: fullHeightCSS });
+      } catch (error) {
+        console.error('Error auto-injecting full height CSS:', error);
+      }
+      
       return {
         content: [
           {
@@ -314,8 +389,8 @@ async function handleToolCall(
     case "puppeteer_set_window_size": {
       try {
         // Default values if not provided
-        const width = args.width || 1200;
-        const height = args.height || 900;
+        const width = args.width || 1920;
+        const height = args.height || 1080;
         
         if (process.env.DOCKER_CONTAINER) {
           // In headless mode, use viewport
@@ -338,6 +413,46 @@ async function handleToolCall(
       } catch (error) {
         return {
           content: [{ type: "text", text: `Error setting window size: ${error.message}` }],
+          isError: true
+        };
+      }
+    }
+
+    case "puppeteer_inject_css": {
+      try {
+        // Default CSS for full height content
+        const defaultFullHeightCSS = `
+          html, body { 
+            height: 100vh !important; 
+            margin: 0 !important; 
+            padding: 0 !important; 
+            overflow: auto !important;
+          }
+          .pve-content, #content, main, .main-container, .content-area, .content-wrapper, .container, .container-fluid {
+            min-height: 100vh !important;
+            height: auto !important;
+          }
+          iframe, .frame, .iframe-container {
+            height: 100vh !important;
+            min-height: 100vh !important;
+          }
+        `;
+        
+        // If fullHeight is true or no parameters are provided, use the default full height CSS
+        // Otherwise use the custom CSS if provided
+        const css = args.fullHeight === true || (!args.css && !args.fullHeight === false) 
+          ? defaultFullHeightCSS 
+          : args.css || '';
+          
+        await page.addStyleTag({ content: css });
+        
+        return {
+          content: [{ type: "text", text: `CSS injected successfully` }],
+          isError: false
+        };
+      } catch (error) {
+        return {
+          content: [{ type: "text", text: `Error injecting CSS: ${error.message}` }],
           isError: true
         };
       }
