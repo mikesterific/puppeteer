@@ -174,6 +174,7 @@ async function ensureBrowser() {
     page = pages[0];
     page.setRequestInterception(true);
 
+    // Configure page listeners for logging and request tracking
     page.on("console", (msg) => {
       const logEntry = `[${msg.type()}] ${msg.text()}`;
       consoleLogs.push(logEntry);
@@ -228,6 +229,16 @@ async function ensureBrowser() {
       }
       request.continue();
     });
+    
+    // Navigate to localhost:5173 by default
+    try {
+      console.log("Navigating to default development server at http://localhost:5173/");
+      await page.goto("http://localhost:5173/", { waitUntil: 'networkidle0' });
+      urlHistory.push("http://localhost:5173/");
+      console.log("Successfully navigated to http://localhost:5173/");
+    } catch (error) {
+      console.error("Failed to navigate to http://localhost:5173/ - falling back to default:", error);
+    }
   }
   return page!;
 }
